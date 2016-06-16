@@ -2,7 +2,7 @@ from random import choice, randint
 
 from faker import Factory
 
-from hierarchical import ResourceTree
+from resource_tree import ResourceTree
 
 
 def make_fake_tree(n_project, n_version, n_purpose, n_user_per_purpose,
@@ -65,11 +65,19 @@ def make_fake_tree(n_project, n_version, n_purpose, n_user_per_purpose,
 
 
 if __name__ == '__main__':
-    # rt = make_fake_tree(n_project=50, n_version=10, n_purpose=5, n_user_per_purpose=2,
-    #                     n_person=100, n_user_per_person=20,
-    #                     n_host=400, n_user_per_host=10)
+    from json import dumps
 
-    rt = make_fake_tree(n_project=5, n_version=2, n_purpose=3, n_user_per_purpose=1,
-                        n_person=10, n_user_per_person=3,
-                        n_host=4, n_user_per_host=5)
+    rt = make_fake_tree(n_project=50, n_version=10, n_purpose=5, n_user_per_purpose=2,
+                        n_person=100, n_user_per_person=20,
+                        n_host=400, n_user_per_host=10)
+
+    # rt = make_fake_tree(n_project=5, n_version=2, n_purpose=3, n_user_per_purpose=1,
+    #                     n_person=10, n_user_per_person=3,
+    #                     n_host=4, n_user_per_host=5)
     # print(rt.tree())
+
+    d = rt.to_dict()
+    print(len(dumps(d)))
+
+    rt2 = ResourceTree.from_dict(d)
+    # print(rt2.tree())

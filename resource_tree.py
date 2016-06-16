@@ -1,4 +1,4 @@
-from resource import RealResource, LinkedResource, ChildNotFoundException, ChildAlreadyExistsException
+from resource import ResourceStore, RealResource, LinkedResource, ChildNotFoundException, ChildAlreadyExistsException
 
 
 class PathException(Exception):
@@ -26,31 +26,52 @@ def do_nothing_if(exception):
                 return f(*args, **kwargs)
             except exception:
                 return None
-
         return wrapped
-
     return wrapper
 
 
 class ResourceTree:
     def __init__(self):
-        self.root = RealResource(resource_type="ROOT")
+        self.store = ResourceStore()
+        self.root = self.store.alloc(RealResource, resource_type="ROOT")
+
+    def to_dict(self):
+        return self.store.to_dict()
+
+    @classmethod
+    def from_dict(cls, dict):
+        tree = ResourceTree()
+        tree.store = ResourceStore.from_dict(dict)
+        tree.root = tree.store[1]
+        return tree
 
     def locate(self, path):
+        path = path.strip("/")
+
         if not path:
             return self.root
 
         node = self.root
 
         try:
-            for name in path.strip("/").split("/"):
+            for name in path.split("/"):
                 node = node[name]
         except ChildNotFoundException:
             raise PathNotFoundException(path)
 
         return node
 
-    @do_nothing_if(PathAlreadyExistsException)
+    def fetch(self, path):
+        return self.locate(path).fetch_attributes()
+
+    def list(self, path, only_name=True):
+        res = self.locate(path).children(only_name)
+        if only_name:
+            return list(res)
+        else:
+            return {k: v.fetch_attributes() for k, v in res}
+
+    # @do_nothing_if(PathAlreadyExistsException)
     def create(self, path, resource_type=None, **attributes):
         prefix, name = split_last(path)
 
@@ -59,14 +80,14 @@ class ResourceTree:
         except PathNotFoundException:
             parent = self.create(prefix)
 
-        node = RealResource(attributes, resource_type)
+        node = self.store.alloc(RealResource, attributes, resource_type)
 
         try:
             return parent.add_child(name, node)
         except ChildAlreadyExistsException:
             raise PathAlreadyExistsException(path)
 
-    @do_nothing_if(PathAlreadyExistsException)
+    # @do_nothing_if(PathAlreadyExistsException)
     def link(self, path, target, hard=False):
         if path.endswith("/"):
             prefix = path.strip("/")
@@ -81,21 +102,15 @@ class ResourceTree:
 
         node = self.locate(target)
         if not hard:
-            node = LinkedResource(node)
+            node = self.store.alloc(LinkedResource, node)
 
         try:
             return parent.add_child(name, node)
         except ChildAlreadyExistsException:
             raise PathAlreadyExistsException("{}/{}".format(prefix, name))
 
-    def fetch(self, path):
-        return self.locate(path).fetch_attributes()
-
     def update(self, path, **attributes):
         return self.locate(path).update_attributes(attributes)
-
-    def list(self, path):
-        return self.locate(path).children(only_name=True)
 
     def remove(self, path):
         prefix, name = split_last(path)
@@ -151,3 +166,7 @@ if __name__ == '__main__':
     print(ts.tree())
     ts.remove("/zh/v7")
     print(ts.tree())
+
+    d = ts.to_dict()
+    ts2 = ResourceTree.from_dict(d)
+    print(ts2.tree())
