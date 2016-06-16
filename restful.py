@@ -1,41 +1,39 @@
 from flask import Flask, jsonify, request
-from hierarchical import TreeStorage, SEP
 
-rt= TreeStorage()
+from hierarchical import ResourceTree
+
+rt = ResourceTree()
 app = Flask(__name__)
 
 
 @app.route("/<path:path>", methods=["GET"])
 def get_resource(path):
-    return jsonify(rt.get_data(path))
-
-
-@app.route("/<path:path>/", methods=["GET"])
-def list_resource(path):
-    return jsonify(rt.list_children(path.rstrip(SEP)))
+    return jsonify(rt.fetch(path))
 
 
 @app.route("/<path:path>", methods=["PUT"])
 def create_resource(path):
-    path.rstrip("/")
-    routine = rt.link if request.args.get("link", False) else rt.create
-    return jsonify(routine(path, request.json) or None)
+    link = request.args.get("link", False)
+    if link:
+        result = rt.link(path, request.args.get("target"), link == "hard")
+    else:
+        result = rt.create(path, request.args.get("type"), request.json)
+    return jsonify(result)
 
 
 @app.route("/<path:path>", methods=["POST"])
 def update_resource(path):
-    return jsonify(rt.update_data(path, request.json))
-
-
-@app.route("/<path:path>/", methods=["POST"])
-def move_resource(path):
-    (name, new_path) = request.json
-    return jsonify(rt.move(path, name, new_path))
+    return jsonify(rt.update(path, **request.json))
 
 
 @app.route("/<path:path>", methods=["DELETE"])
 def remove_resource(path):
     return jsonify(rt.remove(path))
+
+
+@app.route("/<path:path>/", methods=["GET"])
+def list_resource(path):
+    return jsonify(rt.list(path))
 
 
 if __name__ == '__main__':
